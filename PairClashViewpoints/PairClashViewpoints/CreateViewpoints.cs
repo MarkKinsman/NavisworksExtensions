@@ -60,18 +60,14 @@ namespace PairClashViewpoints
                 InwOpClashElement m_clash = GetClashPlugin(myState);
                 if (m_clash != null)
                 {
-                    /*//Iterate through every test
+                    //Iterate through every test
                     foreach (InwOclClashTest oClashTest in m_clash.Tests())
                     {
                         foreach (InwOclTestResult oClashResult in oClashTest.results())
                         {
                             CreateViewpointSet(myState, oClashResult);
                         }
-                    }*/
-
-                    InwOclClashTest clashTest = m_clash.Tests()[1];
-                    InwOclTestResult clashResult = clashTest.results()[1];
-                    CreateViewpointSet(myState, clashResult);
+                    }
                 }
             }
             catch (Exception loEx1)
@@ -168,36 +164,41 @@ namespace PairClashViewpoints
             Autodesk.Navisworks.Api.DocumentParts.DocumentSavedViewpoints oSavePts = oDoc.SavedViewpoints;
 
             // Find the folder it belongs to
-            GroupItem oFolder = GetViewpointDestinationFolder(oClash, oSavePts);
+            FolderItem oFolder = GetViewpointDestinationFolder(oClash, oSavePts);
             if (oFolder != null)
             {
                 try
-                {                   
+                {
                     // create a saved viewpoint
                     InwOpView oClashViewpoint = myState.ObjectFactory(nwEObjectType.eObjectType_nwOpView);
 
+                    var vp = oClash.GetSuitableViewPoint();
+
                     // Set viewpoint camera and apply it
-                    oClashViewpoint.anonview.ViewPoint = oClash.ViewPoint;
-                    myState.ApplyView(oClashViewpoint);
+                    oClashViewpoint.anonview.ViewPoint = vp;
+                    // Name the viewpoint
+                    oClashViewpoint.name = "All";
+                    // Set Hide/Required of viewpoint
+                    oClashViewpoint.ApplyHideAttribs = true;
+                    oClashViewpoint.ApplyMaterialAttribs = false;
+
                     
+
+                    // Save the viewpoint
+                    SavedViewpoint savedAllViewPoint = new SavedViewpoint(ComApiBridge.ToViewpoint(oClashViewpoint.anonview));
                     // Name the Viewpoint
-                    oClashViewpoint.name = oClash.name + " - All";
-                    // Set Hide/Required of viewpoint
-                    oClashViewpoint.ApplyHideAttribs = true;
-                    myState.SavedViews().Add(oClashViewpoint);
-                    oFolder.Children.Add(oClashViewpoint);
-                    // move the last saved viewpoint to the folder
-                    oSavePts.Move(oSavePts.RootItem, oSavePts.Value.Count - 1, oFolder, oFolder.Children.Count);
+                    savedAllViewPoint.DisplayName = string.Format("{0} - All", oClash.name);                    
+                    // Put in folder
+                    oFolder.Children.Add(savedAllViewPoint);
 
+                    // Apply the view
+                    myState.ApplyView(oClashViewpoint);
 
+                    // Save the viewpoint
+                    SavedViewpoint savedIsolatedViewPoint = new SavedViewpoint(ComApiBridge.ToViewpoint(oClashViewpoint.anonview));
                     // Name the Viewpoint
-                    oClashViewpoint.name = oClash.name + " - Isolated";
-                    // Set Hide/Required of viewpoint
-                    oClashViewpoint.ApplyHideAttribs = true;
-                    myState.SavedViews().Add(oClashViewpoint);
-
-                    // move the last saved viewpoint to the folder
-                    oSavePts.Move(oSavePts.RootItem, oSavePts.Value.Count - 1, oFolder, oFolder.Children.Count);
+                    savedIsolatedViewPoint.DisplayName = string.Format("{0} - Isolated", oClash.name);
+                    oFolder.Children.Add(savedIsolatedViewPoint);
 
                 }
                 catch (Exception loEx1)
@@ -207,24 +208,39 @@ namespace PairClashViewpoints
             }
         }
 
-        private static GroupItem GetViewpointDestinationFolder(InwOclTestResult oClash, Autodesk.Navisworks.Api.DocumentParts.DocumentSavedViewpoints oSavePts)
+        private static FolderItem GetViewpointDestinationFolder(InwOclTestResult oClash, Autodesk.Navisworks.Api.DocumentParts.DocumentSavedViewpoints oSavePts)
         {
             var spatialCoordinationFolderIndex = oSavePts.Value.IndexOfDisplayName(spatialCoordinationFolderName);
             if (spatialCoordinationFolderIndex >= 0)
             {
                 var spatialCoordinationFolder = (GroupItem)oSavePts.Value[spatialCoordinationFolderIndex];
+                GroupItem foundFolder = null;
                 switch (oClash.status)
                 {
                     case nwETestResultStatus.eTestResultStatus_ACTIVE:
                     case nwETestResultStatus.eTestResultStatus_NEW:
-                        return GetGroupItem(spatialCoordinationFolder, openIssuesFolderName);
+                        foundFolder = GetGroupItem(spatialCoordinationFolder, openIssuesFolderName);
+                        break;
                        
                     case nwETestResultStatus.eTestResultStatus_APPROVED:
                     case nwETestResultStatus.eTestResultStatus_RESOLVED:
-                        return GetGroupItem(spatialCoordinationFolder, closedIssuesFolderName);
+                        foundFolder = GetGroupItem(spatialCoordinationFolder, closedIssuesFolderName);
+                        break;
                         
                     case nwETestResultStatus.eTestResultStatus_REVIEWED:
-                        return GetGroupItem(spatialCoordinationFolder, reviewedIssuesFolderName);  
+                        foundFolder = GetGroupItem(spatialCoordinationFolder, reviewedIssuesFolderName);
+                        break;
+                }
+
+                if (foundFolder != null)
+                {
+                    FolderItem newFolder = new FolderItem() { DisplayName = oClash.name };
+                    foundFolder.Children.Add(newFolder);
+                    return newFolder;
+                }
+                else
+                {
+                    return null;
                 }
             }
             return null;
