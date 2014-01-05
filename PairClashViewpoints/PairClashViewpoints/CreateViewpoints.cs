@@ -22,11 +22,16 @@ namespace PairClashViewpoints
 
     public class CreateViewpoint : AddInPlugin
     {
+        const string spatialCoordinationFolderName = "02. Spatial Coordination";
+        const string openIssuesFolderName = "01. Open Issues";
+        const string closedIssuesFolderName = "02. Closed Issues";
+        const string reviewedIssuesFolderName = "03. Reviewed Issues";
+
         public override int Execute(params string[] parameters)
         {
             InwOpState10 myState = ComApiBridge.State;
 
-            ParseClash(myState);
+            ParseClashNet(myState);
 
             /* InwOpSelection2 myDefaultView = GetDefault(myState);   ModelItemCollection
             System.Diagnostics.Debugger.Break();
@@ -52,12 +57,12 @@ namespace PairClashViewpoints
             return 0;
         }
 
-        private void ParseClash(InwOpState10 myState)
+        private void ParseClashCom(InwOpState10 myState)
         {
             try
             {
                 //find the clash detective plugin
-                InwOpClashElement m_clash = GetClashPlugin(myState);
+                InwOpClashElement m_clash = GetClashPluginCom(myState);
                 if (m_clash != null)
                 {
                     StringBuilder sb = new StringBuilder();
@@ -66,7 +71,7 @@ namespace PairClashViewpoints
                     {
                         foreach (InwOclTestResult2 oClashResult in oClashTest.results())
                         {
-                            //CreateViewpointSet(myState, oClashResult);
+                            CreateViewpointSet(myState, oClashResult);
                         }
                     }
 
@@ -79,81 +84,68 @@ namespace PairClashViewpoints
             }
         }
 
-        private static InwOpClashElement GetClashPlugin(InwOpState10 myState)
-        {
-            InwOpClashElement m_clash = null;
-            foreach (InwBase oPlugin in myState.Plugins())
-            {
-                if (oPlugin.ObjectName == "nwOpClashElement")
-                {
-                    m_clash = (InwOpClashElement)oPlugin;
-                    break;
-                }
-            }
-
-            if (m_clash == null)
-            {
-                MessageBox.Show("cannot find clash test plugin!");
-            }
-            return m_clash;
-        }
-
-        /*private void CreateViewpointSet(InwOpState10 myState)
+        private void ParseClashNet(InwOpState10 myState)
         {
             try
             {
-                // assume the document has a saved viewpoint folder named  "02. Spactial Coordination"
-                // inside that folder is "01. Open Issues" "02. Closed Issues" "03. Reviewed"
+                Document oDoc = Autodesk.Navisworks.Api.Application.ActiveDocument;
 
-                // get the saved viewpoints
-                InwSavedViewsColl oSavePts = myState.SavedViews();
-
-                //Follow the tree to the right folder
-                InwOpSavedView oFolder = myState.ObjectFactory(nwEObjectType.eObjectType_nwOpFolderView, null, null) as InwOpSavedView;
-                foreach (InwOpSavedView oEachItem in oSavePts)
+                foreach (ClashTest test in oDoc.GetClash().TestsData.Tests)
                 {
-                    if (oEachItem.Type == nwESavedViewType.eSavedViewType_Folder & oEachItem.name == "02. Spatial Coordination")
+                    foreach (IClashResult result in test.Children)
                     {
-
-                        foreach (InwOpSavedView oEachItem2 in ((InwOpGroupView)oEachItem).SavedViews())
+                        if (result is ClashResultGroup)
                         {
-                            if (oEachItem2.Type == nwESavedViewType.eSavedViewType_Folder & oEachItem2.name == "01. Open Issues")
-                            {
-                                //Capture the folder including the position
-                                oFolder = oEachItem2;
-                                break;
-                            }
+                            CreateViewPointSetNet(myState, result);
                         }
-
                     }
                 }
-                        // Create a new viewpoint
-                        InwOpView cNewViewPt1 = myState.ObjectFactory(nwEObjectType.eObjectType_nwOpView, null, null) as InwOpView;
-                        cNewViewPt1.anonview = myState.CurrentView;
-                        // Set Hide/Required to true
-                        cNewViewPt1.ApplyHideAttribs = true;
-                        // Set name
-                        cNewViewPt1.name = "Display Name";
-
-                        long[] test = new long[2] { 1, 0 };
-                        // add the new saved viewpoint to the collection
-                        //myState.SavedViews().Add(cNewViewPt1);
-                        myState.SavedViews().Insert(test, cNewViewPt1);
-                    
-                        GC.KeepAlive(myState);
-                        GC.KeepAlive(oFolder);
             }
-            catch (Exception loEx1)
+            catch (Exception ex)
             {
-                MessageBox.Show(String.Format("Exception caught : '{0}'.", loEx1.Message), "Error", MessageBoxButtons.OK, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
+                MessageBox.Show(ex.Message);
             }
-        }*/
+        }
 
-        const string spatialCoordinationFolderName = "02. Spatial Coordination";
-        const string openIssuesFolderName = "01. Open Issues";
-        const string closedIssuesFolderName = "02. Closed Issues";
-        const string reviewedIssuesFolderName = "03. Reviewed Issues";
+        private void CreateViewPointSetNet(InwOpState10 myState, IClashResult result)
+        {
+            Document oDoc = Autodesk.Navisworks.Api.Application.ActiveDocument;
+            FolderItem spatialCoordinationFolder = GetFolderItemNet(oDoc.SavedViewpoints, spatialCoordinationFolderName);
+            if (spatialCoordinationFolder != null)
+            {
+                FolderItem viewPointSaveFolder = GetViewPointDestinationFolderNet(spatialCoordinationFolder, result);
+                if (viewPointSaveFolder != null)
+                {
+                    try
+                    {
+                        oDoc.CurrentSelection.Clear();
+                        oDoc.CurrentSelection.AddRange(result.Selection1);
+                        oDoc.CurrentSelection.AddRange(result.Selection2);
+                        ZoomCurrentSelection();
 
+                        Viewpoint allViewPoint = oDoc.CurrentViewpoint.CreateCopy();
+
+                        SavedViewpoint savedAllViewPoint = new SavedViewpoint(allViewPoint);
+                        savedAllViewPoint.DisplayName = "All";
+                        oDoc.SavedViewpoints.AddCopy(viewPointSaveFolder, savedAllViewPoint);
+
+                        Viewpoint isolatedViewPoint = allViewPoint.CreateCopy();
+
+                        SavedViewpoint savedIsolatedViewPoint = new SavedViewpoint(isolatedViewPoint);
+                        savedIsolatedViewPoint.DisplayName = "Isolated";
+                        oDoc.SavedViewpoints.AddCopy(viewPointSaveFolder, savedIsolatedViewPoint);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show(ex.Message);
+                    }
+                }
+            }
+            else
+            {
+                MessageBox.Show("Missing folder: " + spatialCoordinationFolderName);
+            }
+        }
 
         private void CreateViewpointSet(InwOpState10 myState, InwOclTestResult oClash)
         {
@@ -167,7 +159,7 @@ namespace PairClashViewpoints
             Autodesk.Navisworks.Api.DocumentParts.DocumentSavedViewpoints oSavePts = oDoc.SavedViewpoints;
 
             // Find the folder it belongs to
-            InwOpFolderView oFolder = GetViewpointDestinationFolder(oClash, myState);
+            InwOpFolderView oFolder = GetViewpointDestinationFolderCom(oClash, myState);
             if (oFolder != null)
             {
                 try
@@ -199,7 +191,7 @@ namespace PairClashViewpoints
                     isolatedViewPoint.ApplyMaterialAttribs = false;
 
                     // Put in folder
-                    oFolder.SavedViews().Add(isolatedViewPoint);    
+                    oFolder.SavedViews().Add(isolatedViewPoint);
                 }
                 catch (Exception loEx1)
                 {
@@ -208,25 +200,46 @@ namespace PairClashViewpoints
             }
         }
 
-        private static InwOpFolderView GetViewpointDestinationFolder(InwOclTestResult oClash, InwOpState10 myState)
+
+        public void ZoomCurrentSelection()
         {
 
-            var spatialCoordinationFolder = GetFolder(myState.SavedViews(), spatialCoordinationFolderName);
+            InwOpState10 comState = ComApiBridge.State;
+
+            //Create a collection
+            ModelItemCollection modelItemCollectionIn = new ModelItemCollection(Autodesk.Navisworks.Api.Application.ActiveDocument.CurrentSelection.SelectedItems);
+
+            InwOpSelection comSelectionOut = ComApiBridge.ToInwOpSelection(modelItemCollectionIn);
+
+            // zoom in to the specified selection
+            comState.ZoomInCurViewOnSel(comSelectionOut);
+
+            // zoom in to the current selection
+            //comState.ZoomInCurViewOnCurSel();
+
+        }
+
+
+        #region GetFolderCom
+        private static InwOpFolderView GetViewpointDestinationFolderCom(InwOclTestResult oClash, InwOpState10 myState)
+        {
+
+            var spatialCoordinationFolder = GetFolderCom(myState.SavedViews(), spatialCoordinationFolderName);
             InwOpGroupView foundFolder = null;
             switch (oClash.status)
             {
                 case nwETestResultStatus.eTestResultStatus_ACTIVE:
                 case nwETestResultStatus.eTestResultStatus_NEW:
-                    foundFolder = GetFolder(spatialCoordinationFolder, openIssuesFolderName);
+                    foundFolder = GetFolderCom(spatialCoordinationFolder, openIssuesFolderName);
                     break;
-                       
+
                 case nwETestResultStatus.eTestResultStatus_APPROVED:
                 case nwETestResultStatus.eTestResultStatus_RESOLVED:
-                    foundFolder = GetFolder(spatialCoordinationFolder, closedIssuesFolderName);
+                    foundFolder = GetFolderCom(spatialCoordinationFolder, closedIssuesFolderName);
                     break;
-                        
+
                 case nwETestResultStatus.eTestResultStatus_REVIEWED:
-                    foundFolder = GetFolder(spatialCoordinationFolder, reviewedIssuesFolderName);
+                    foundFolder = GetFolderCom(spatialCoordinationFolder, reviewedIssuesFolderName);
                     break;
             }
 
@@ -243,7 +256,8 @@ namespace PairClashViewpoints
             }
         }
 
-        private static InwOpFolderView GetFolder(InwSavedViewsColl rootSavedViews, string folderName)
+
+        private static InwOpFolderView GetFolderCom(InwSavedViewsColl rootSavedViews, string folderName)
         {
             foreach (InwOpSavedView savedView in rootSavedViews)
             {
@@ -255,7 +269,7 @@ namespace PairClashViewpoints
                     }
                     else
                     {
-                        var foundFolder = GetFolder(((InwOpFolderView)savedView).SavedViews(), folderName);
+                        var foundFolder = GetFolderCom(((InwOpFolderView)savedView).SavedViews(), folderName);
                         if (foundFolder != null)
                         {
                             return foundFolder;
@@ -267,9 +281,9 @@ namespace PairClashViewpoints
             return null;
         }
 
-        private static InwOpFolderView GetFolder(InwOpGroupView parentSavedView, string folderName)
+        private static InwOpFolderView GetFolderCom(InwOpGroupView parentSavedView, string folderName)
         {
-            return GetFolder(parentSavedView.SavedViews(), folderName);
+            return GetFolderCom(parentSavedView.SavedViews(), folderName);
         }
 
         private static GroupItem GetGroupItem(GroupItem spatialCoordinationFolder, string folderName)
@@ -308,15 +322,93 @@ namespace PairClashViewpoints
                     }
                 }
                 MessageBox.Show(string.Format("No '{0}' view at the root level.", "00. Default"));
-                
+
             }
             catch (Exception loEx1)
             {
                 MessageBox.Show(String.Format("Exception caught : '{0}'.", loEx1.Message), "Error", MessageBoxButtons.OK, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
             }
             return null;
-        }   
-    
+        }
+
+        #endregion
+
+        private FolderItem GetViewPointDestinationFolderNet(FolderItem parentFolder, IClashResult clashResult)
+        {
+            FolderItem foundFolder = null;
+            string folderName = null;
+            switch (clashResult.Status)
+            {
+                case ClashResultStatus.Active:
+                case ClashResultStatus.New:
+                    folderName = openIssuesFolderName;
+                    break;
+
+                case ClashResultStatus.Approved:
+                case ClashResultStatus.Resolved:
+                    folderName = closedIssuesFolderName;
+                    break;
+
+                case ClashResultStatus.Reviewed:
+                    folderName = reviewedIssuesFolderName;
+                    break;
+            }
+
+            foundFolder =  GetFolderItemNet(parentFolder, folderName);
+            if (foundFolder == null)
+            {
+                MessageBox.Show("Missing folder: " + folderName);
+            }
+            else
+            {
+                FolderItem clashFolder = new FolderItem();
+                clashFolder.DisplayName = clashResult.DisplayName;
+                Autodesk.Navisworks.Api.Application.ActiveDocument.SavedViewpoints.AddCopy(foundFolder, clashFolder);
+                return (FolderItem)foundFolder.Children[foundFolder.Children.IndexOfDisplayName(clashResult.DisplayName)];
+            }
+
+            return null;
+        }
+
+        private static FolderItem GetFolderItemNet(SavedItem folder, string folderName)
+        {
+            if (folder is FolderItem)
+            {
+                if (folder.DisplayName == folderName)
+                {
+                    return folder as FolderItem;
+                }
+                else
+                {
+                    foreach (SavedItem child in ((FolderItem)folder).Children)
+                    {
+                        var foundFolder = GetFolderItemNet(child, folderName);
+                        if (foundFolder != null)
+                        {
+                            return foundFolder;
+                        }
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        private static FolderItem GetFolderItemNet(SavedItemCollection folders, string folderName)
+        {
+            foreach (var folder in folders)
+            {
+                var foundFolder = GetFolderItemNet(folder, folderName);
+                if (foundFolder != null)
+                {
+                    return foundFolder;
+                }
+            }
+
+            return null;
+        }
+
+
         private void HideUnselected(InwOpSelection2 myCurrentSelection, InwOpState10 myState)
         {
             try
@@ -358,6 +450,26 @@ namespace PairClashViewpoints
             // Show the default Selection
             myState.set_SelectionHidden(myDefaultSelection, false);
             MessageBox.Show("Show");
+        }
+
+
+        private static InwOpClashElement GetClashPluginCom(InwOpState10 myState)
+        {
+            InwOpClashElement m_clash = null;
+            foreach (InwBase oPlugin in myState.Plugins())
+            {
+                if (oPlugin.ObjectName == "nwOpClashElement")
+                {
+                    m_clash = (InwOpClashElement)oPlugin;
+                    break;
+                }
+            }
+
+            if (m_clash == null)
+            {
+                MessageBox.Show("cannot find clash test plugin!");
+            }
+            return m_clash;
         }
     }
 }
