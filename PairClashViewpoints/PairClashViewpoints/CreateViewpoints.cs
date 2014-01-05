@@ -12,6 +12,7 @@ using Autodesk.Navisworks.Api.ComApi;
 using Autodesk.Navisworks.Api.Interop;
 using Autodesk.Navisworks.Api.Interop.ComApi;
 using Autodesk.Navisworks.Api.Clash;
+using System.Diagnostics;
 
 namespace PairClashViewpoints
 {
@@ -22,18 +23,41 @@ namespace PairClashViewpoints
 
     public class CreateViewpoint : AddInPlugin
     {
+        const string defaulViewpointName = "00. Default";
         const string spatialCoordinationFolderName = "02. Spatial Coordination";
         const string openIssuesFolderName = "01. Open Issues";
         const string closedIssuesFolderName = "02. Closed Issues";
         const string reviewedIssuesFolderName = "03. Reviewed Issues";
 
+        InwOpFolderView openIssuesFolder = null;
+        InwOpFolderView closedIssuesFolder = null;
+        InwOpFolderView reviewedIssuesFolder = null;
+
+        InwOpView defaultView = null;
+        int createViewCount = 0;
+
         public override int Execute(params string[] parameters)
         {
             InwOpState10 myState = ComApiBridge.State;
 
+            GetAndClearClashFolders(myState);
+            Stopwatch totalTime = new Stopwatch();
+            totalTime.Start();
             ParseClash(myState);
-
+            totalTime.Stop();
+            MessageBox.Show(Autodesk.Navisworks.Api.Application.Gui.MainWindow, "Done.  Elapsed: " + totalTime.Elapsed.TotalSeconds + "s");
             return 0;
+        }
+
+        private void GetAndClearClashFolders(InwOpState10 myState)
+        {
+            var spatialCoordinationFolder = GetFolder(myState.SavedViews(), spatialCoordinationFolderName);
+            openIssuesFolder = GetFolder(spatialCoordinationFolder, openIssuesFolderName);
+            openIssuesFolder.SavedViews().Clear();
+            closedIssuesFolder = GetFolder(spatialCoordinationFolder, closedIssuesFolderName);
+            closedIssuesFolder.SavedViews().Clear();
+            reviewedIssuesFolder = GetFolder(spatialCoordinationFolder, reviewedIssuesFolderName);
+            reviewedIssuesFolder.SavedViews().Clear();
         }
 
         private void ParseClash(InwOpState10 myState)
@@ -41,7 +65,7 @@ namespace PairClashViewpoints
             try
             {
                 Document oDoc = Autodesk.Navisworks.Api.Application.ActiveDocument;
-
+                createViewCount = 0;
                 foreach (ClashTest test in oDoc.GetClash().TestsData.Tests)
                 {
                     foreach (IClashResult result in test.Children)
@@ -50,8 +74,12 @@ namespace PairClashViewpoints
                         {
                             CreateViewPointSet(myState, result);
                         }
+                        ((NativeHandle)result).Dispose();                            
                     }
+
+                    test.Dispose();
                 }
+
             }
             catch (Exception ex)
             {
@@ -67,6 +95,11 @@ namespace PairClashViewpoints
             {
                 try
                 {
+                    Stopwatch stopWatch = new Stopwatch();
+                    stopWatch.Start();
+                    Debug.Write(string.Format("Starting #{0} - {1}", ++createViewCount, result.DisplayName));
+                    oDoc.BeginTransaction 
+                    ShowDefaultViewpoint(myState);
                     oDoc.CurrentSelection.Clear();
                     oDoc.CurrentSelection.AddRange(result.Selection1);
                     oDoc.CurrentSelection.AddRange(result.Selection2);
@@ -74,7 +107,14 @@ namespace PairClashViewpoints
 
                     CreateViewPointFromCurrentView(myState, "All", viewPointSaveFolder);
 
+                    oDoc.CurrentSelection.Clear();
+                    oDoc.CurrentSelection.AddRange(result.Selection1);
+                    oDoc.CurrentSelection.AddRange(result.Selection2);
+                    HideUnselected(myState);
+
                     CreateViewPointFromCurrentView(myState, "Isolated", viewPointSaveFolder);
+                    stopWatch.Stop();
+                    Debug.WriteLine(" Elapsed: {0}s", stopWatch.Elapsed.TotalSeconds);
                 }
                 catch (Exception ex)
                 {
@@ -85,9 +125,10 @@ namespace PairClashViewpoints
             {
                 MessageBox.Show("Missing folder: " + spatialCoordinationFolderName);
             }
+            
         }
 
-        private static void CreateViewPointFromCurrentView(InwOpState10 myState, string name, InwOpFolderView viewPointSaveFolder)
+        private void CreateViewPointFromCurrentView(InwOpState10 myState, string name, InwOpFolderView viewPointSaveFolder)
         {
             InwOpView allViewPoint = myState.ObjectFactory(nwEObjectType.eObjectType_nwOpView);
 
@@ -104,50 +145,43 @@ namespace PairClashViewpoints
 
         public void ZoomCurrentSelection()
         {
-
             InwOpState10 comState = ComApiBridge.State;
 
             //Create a collection
-            ModelItemCollection modelItemCollectionIn = new ModelItemCollection(Autodesk.Navisworks.Api.Application.ActiveDocument.CurrentSelection.SelectedItems);
+            using (ModelItemCollection modelItemCollectionIn = new ModelItemCollection(Autodesk.Navisworks.Api.Application.ActiveDocument.CurrentSelection.SelectedItems))
+            {
+                InwOpSelection comSelectionOut = ComApiBridge.ToInwOpSelection(modelItemCollectionIn);
 
-            InwOpSelection comSelectionOut = ComApiBridge.ToInwOpSelection(modelItemCollectionIn);
-
-            // zoom in to the specified selection
-            comState.ZoomInCurViewOnSel(comSelectionOut);
-
+                // zoom in to the specified selection
+                comState.ZoomInCurViewOnSel(comSelectionOut);
+            }
         }
 
-
-        #region GetFolderCom
-        private static InwOpFolderView GetViewpointDestinationFolder(ClashResultStatus clashResult, string clashName, InwOpState10 myState)
+        private InwOpFolderView GetViewpointDestinationFolder(ClashResultStatus clashResult, string clashName, InwOpState10 myState)
         {
-
-            var spatialCoordinationFolder = GetFolder(myState.SavedViews(), spatialCoordinationFolderName);
-            
-            string folderName = null;
+            InwOpFolderView folder = null;
             switch (clashResult)
             {
                 case ClashResultStatus.Active:
                 case ClashResultStatus.New:
-                    folderName = openIssuesFolderName;
+                    folder = openIssuesFolder;
                     break;
 
                 case ClashResultStatus.Approved:
                 case ClashResultStatus.Resolved:
-                    folderName = closedIssuesFolderName;
+                    folder = closedIssuesFolder;
                     break;
 
                 case ClashResultStatus.Reviewed:
-                    folderName = reviewedIssuesFolderName;
+                    folder = reviewedIssuesFolder;
                     break;
             }
 
-            InwOpGroupView foundFolder = GetFolder(spatialCoordinationFolder, folderName);
-            if (foundFolder != null)
+            if (folder != null)
             {
                 InwOpFolderView newFolder = myState.ObjectFactory(nwEObjectType.eObjectType_nwOpFolderView) as InwOpFolderView;
                 newFolder.name = clashName;
-                foundFolder.SavedViews().Add(newFolder);
+                folder.SavedViews().Add(newFolder);
                 return newFolder;
             }
             else
@@ -155,7 +189,6 @@ namespace PairClashViewpoints
                 return null;
             }
         }
-
 
         private static InwOpFolderView GetFolder(InwSavedViewsColl rootSavedViews, string folderName)
         {
@@ -186,45 +219,11 @@ namespace PairClashViewpoints
             return GetFolder(parentSavedView.SavedViews(), folderName);
         }
 
-
-        private InwOpSelection2 GetDefault(InwOpState10 myState)
+        private void HideUnselected(InwOpState10 myState)
         {
             try
             {
-                foreach (InwOpSavedView mySavedView in myState.SavedViews())
-                {
-                    if (mySavedView.Type == nwESavedViewType.eSavedViewType_View & mySavedView.name == "00. Default")
-                    {
-                        //Apply the default view to grab visible objects
-                        myState.ApplyView((InwOpView)mySavedView);
-                        //Create a selection of all visible items
-                        InwOpSelection2 myDefaultSelection = myState.ObjectFactory(nwEObjectType.eObjectType_nwOpSelection, null, null) as InwOpSelection2;
-                        myDefaultSelection.SelectAll();
-
-                        myState.set_SelectionHidden(myDefaultSelection, true);
-                        MessageBox.Show("Set Default Hide");
-                        myState.set_SelectionHidden(myDefaultSelection, false);
-                        MessageBox.Show("Set default Show");
-                        return myDefaultSelection;
-                    }
-                }
-                MessageBox.Show(string.Format("No '{0}' view at the root level.", "00. Default"));
-
-            }
-            catch (Exception loEx1)
-            {
-                MessageBox.Show(String.Format("Exception caught : '{0}'.", loEx1.Message), "Error", MessageBoxButtons.OK, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
-            }
-            return null;
-        }
-
-        #endregion
-
-
-        private void HideUnselected(InwOpSelection2 myCurrentSelection, InwOpState10 myState)
-        {
-            try
-            {
+                InwOpSelection2 myCurrentSelection = myState.CurrentSelection.Copy() as InwOpSelection2;
                 // Create a new empty selection
                 InwOpSelection2 myRestOfModel = myState.ObjectFactory(nwEObjectType.eObjectType_nwOpSelection, null, null) as InwOpSelection2;
                 // Get the new selection to contain the entire model
@@ -233,6 +232,8 @@ namespace PairClashViewpoints
                 myRestOfModel.SubtractContents(myCurrentSelection);
                 // Make the unselected part of model invisible
                 myState.set_SelectionHidden(myRestOfModel, true);
+                // Zoom on the currently selected part of model
+                myState.ZoomInCurViewOnCurSel();
             }
             catch (Exception loEx1)
             {
@@ -240,28 +241,30 @@ namespace PairClashViewpoints
             }
         }
 
-        private void ShowDefault(InwOpSelection2 myDefaultSelection, InwOpState10 myState)
+        private void ShowDefaultViewpoint(InwOpState10 myState)
         {
-            myState.set_SelectionHidden(myDefaultSelection, true);
-            MessageBox.Show("Show method Hide");
-            myState.set_SelectionHidden(myDefaultSelection, false);
-            MessageBox.Show("Show Method Show");
-            // Create a new empty selection
-            InwOpSelection2 myRestOfModel = myState.ObjectFactory(nwEObjectType.eObjectType_nwOpSelection, null, null) as InwOpSelection2;
+            if (defaultView == null)
+            {
 
-            myState.set_SelectionHidden(myDefaultSelection, true);
-            MessageBox.Show("Show method2 Hide");
-            myState.set_SelectionHidden(myDefaultSelection, false);
-            MessageBox.Show("Show Method2 Show");
+                foreach (InwOpSavedView mySavedView in myState.SavedViews())
+                {
+                    if (mySavedView.Type == nwESavedViewType.eSavedViewType_View & mySavedView.name == defaulViewpointName)
+                    {
+                        defaultView = (InwOpView)mySavedView;
+                    }                    
+                }
+            }
 
-            // Get all the visible elements
-            myRestOfModel.SelectAll();
-            // Make the unselected part of model invisible
-            myState.set_SelectionHidden(myRestOfModel, true);
-            MessageBox.Show("Hide");
-            // Show the default Selection
-            myState.set_SelectionHidden(myDefaultSelection, false);
-            MessageBox.Show("Show");
+            if (defaultView == null)
+            {
+                MessageBox.Show(string.Format("No '{0}' view at the root level.", defaulViewpointName));
+            }
+            else
+            {
+                //Apply the default view to set geometry
+                myState.ApplyView(defaultView);
+            }
         }
+
     }
 }
