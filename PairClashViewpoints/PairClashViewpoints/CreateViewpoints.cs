@@ -60,14 +60,17 @@ namespace PairClashViewpoints
                 InwOpClashElement m_clash = GetClashPlugin(myState);
                 if (m_clash != null)
                 {
+                    StringBuilder sb = new StringBuilder();
                     //Iterate through every test
                     foreach (InwOclClashTest oClashTest in m_clash.Tests())
                     {
-                        foreach (InwOclTestResult oClashResult in oClashTest.results())
+                        foreach (InwOclTestResult2 oClashResult in oClashTest.results())
                         {
-                            CreateViewpointSet(myState, oClashResult);
+                            //CreateViewpointSet(myState, oClashResult);
                         }
                     }
+
+                    System.Diagnostics.Debug.Write(sb.ToString());
                 }
             }
             catch (Exception loEx1)
@@ -164,42 +167,39 @@ namespace PairClashViewpoints
             Autodesk.Navisworks.Api.DocumentParts.DocumentSavedViewpoints oSavePts = oDoc.SavedViewpoints;
 
             // Find the folder it belongs to
-            FolderItem oFolder = GetViewpointDestinationFolder(oClash, oSavePts);
+            InwOpFolderView oFolder = GetViewpointDestinationFolder(oClash, myState);
             if (oFolder != null)
             {
                 try
                 {
-                    // create a saved viewpoint
-                    InwOpView oClashViewpoint = myState.ObjectFactory(nwEObjectType.eObjectType_nwOpView);
+                    var suitableViewPoint = oClash.GetSuitableViewPoint();
 
-                    var vp = oClash.GetSuitableViewPoint();
+                    // create a saved viewpoint
+                    InwOpView allViewPoint = myState.ObjectFactory(nwEObjectType.eObjectType_nwOpView);
 
                     // Set viewpoint camera and apply it
-                    oClashViewpoint.anonview.ViewPoint = vp;
+                    allViewPoint.anonview.ViewPoint = suitableViewPoint;
                     // Name the viewpoint
-                    oClashViewpoint.name = "All";
+                    allViewPoint.name = "All";
                     // Set Hide/Required of viewpoint
-                    oClashViewpoint.ApplyHideAttribs = true;
-                    oClashViewpoint.ApplyMaterialAttribs = false;
+                    allViewPoint.ApplyHideAttribs = true;
+                    allViewPoint.ApplyMaterialAttribs = false;
 
-                    
-
-                    // Save the viewpoint
-                    SavedViewpoint savedAllViewPoint = new SavedViewpoint(ComApiBridge.ToViewpoint(oClashViewpoint.anonview));
-                    // Name the Viewpoint
-                    savedAllViewPoint.DisplayName = string.Format("{0} - All", oClash.name);                    
                     // Put in folder
-                    oFolder.Children.Add(savedAllViewPoint);
+                    oFolder.SavedViews().Add(allViewPoint);
 
-                    // Apply the view
-                    myState.ApplyView(oClashViewpoint);
+                    InwOpView isolatedViewPoint = myState.ObjectFactory(nwEObjectType.eObjectType_nwOpView);
 
-                    // Save the viewpoint
-                    SavedViewpoint savedIsolatedViewPoint = new SavedViewpoint(ComApiBridge.ToViewpoint(oClashViewpoint.anonview));
-                    // Name the Viewpoint
-                    savedIsolatedViewPoint.DisplayName = string.Format("{0} - Isolated", oClash.name);
-                    oFolder.Children.Add(savedIsolatedViewPoint);
+                    // Set viewpoint camera and apply it
+                    isolatedViewPoint.anonview.ViewPoint = suitableViewPoint;
+                    // Name the viewpoint
+                    isolatedViewPoint.name = "Isolated";
+                    // Set Hide/Required of viewpoint
+                    isolatedViewPoint.ApplyHideAttribs = true;
+                    isolatedViewPoint.ApplyMaterialAttribs = false;
 
+                    // Put in folder
+                    oFolder.SavedViews().Add(isolatedViewPoint);    
                 }
                 catch (Exception loEx1)
                 {
@@ -208,42 +208,68 @@ namespace PairClashViewpoints
             }
         }
 
-        private static FolderItem GetViewpointDestinationFolder(InwOclTestResult oClash, Autodesk.Navisworks.Api.DocumentParts.DocumentSavedViewpoints oSavePts)
+        private static InwOpFolderView GetViewpointDestinationFolder(InwOclTestResult oClash, InwOpState10 myState)
         {
-            var spatialCoordinationFolderIndex = oSavePts.Value.IndexOfDisplayName(spatialCoordinationFolderName);
-            if (spatialCoordinationFolderIndex >= 0)
-            {
-                var spatialCoordinationFolder = (GroupItem)oSavePts.Value[spatialCoordinationFolderIndex];
-                GroupItem foundFolder = null;
-                switch (oClash.status)
-                {
-                    case nwETestResultStatus.eTestResultStatus_ACTIVE:
-                    case nwETestResultStatus.eTestResultStatus_NEW:
-                        foundFolder = GetGroupItem(spatialCoordinationFolder, openIssuesFolderName);
-                        break;
-                       
-                    case nwETestResultStatus.eTestResultStatus_APPROVED:
-                    case nwETestResultStatus.eTestResultStatus_RESOLVED:
-                        foundFolder = GetGroupItem(spatialCoordinationFolder, closedIssuesFolderName);
-                        break;
-                        
-                    case nwETestResultStatus.eTestResultStatus_REVIEWED:
-                        foundFolder = GetGroupItem(spatialCoordinationFolder, reviewedIssuesFolderName);
-                        break;
-                }
 
-                if (foundFolder != null)
+            var spatialCoordinationFolder = GetFolder(myState.SavedViews(), spatialCoordinationFolderName);
+            InwOpGroupView foundFolder = null;
+            switch (oClash.status)
+            {
+                case nwETestResultStatus.eTestResultStatus_ACTIVE:
+                case nwETestResultStatus.eTestResultStatus_NEW:
+                    foundFolder = GetFolder(spatialCoordinationFolder, openIssuesFolderName);
+                    break;
+                       
+                case nwETestResultStatus.eTestResultStatus_APPROVED:
+                case nwETestResultStatus.eTestResultStatus_RESOLVED:
+                    foundFolder = GetFolder(spatialCoordinationFolder, closedIssuesFolderName);
+                    break;
+                        
+                case nwETestResultStatus.eTestResultStatus_REVIEWED:
+                    foundFolder = GetFolder(spatialCoordinationFolder, reviewedIssuesFolderName);
+                    break;
+            }
+
+            if (foundFolder != null)
+            {
+                InwOpFolderView newFolder = myState.ObjectFactory(nwEObjectType.eObjectType_nwOpFolderView) as InwOpFolderView;
+                newFolder.name = oClash.name;
+                foundFolder.SavedViews().Add(newFolder);
+                return newFolder;
+            }
+            else
+            {
+                return null;
+            }
+        }
+
+        private static InwOpFolderView GetFolder(InwSavedViewsColl rootSavedViews, string folderName)
+        {
+            foreach (InwOpSavedView savedView in rootSavedViews)
+            {
+                if (savedView.Type == nwESavedViewType.eSavedViewType_Folder)
                 {
-                    FolderItem newFolder = new FolderItem() { DisplayName = oClash.name };
-                    foundFolder.Children.Add(newFolder);
-                    return newFolder;
-                }
-                else
-                {
-                    return null;
+                    if (savedView.name == folderName)
+                    {
+                        return (InwOpFolderView)savedView;
+                    }
+                    else
+                    {
+                        var foundFolder = GetFolder(((InwOpFolderView)savedView).SavedViews(), folderName);
+                        if (foundFolder != null)
+                        {
+                            return foundFolder;
+                        }
+                    }
                 }
             }
+
             return null;
+        }
+
+        private static InwOpFolderView GetFolder(InwOpGroupView parentSavedView, string folderName)
+        {
+            return GetFolder(parentSavedView.SavedViews(), folderName);
         }
 
         private static GroupItem GetGroupItem(GroupItem spatialCoordinationFolder, string folderName)
