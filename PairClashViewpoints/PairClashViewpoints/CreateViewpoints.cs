@@ -110,41 +110,44 @@ namespace PairClashViewpoints
         private void CreateViewPointSetNet(InwOpState10 myState, IClashResult result)
         {
             Document oDoc = Autodesk.Navisworks.Api.Application.ActiveDocument;
-            FolderItem spatialCoordinationFolder = GetFolderItemNet(oDoc.SavedViewpoints, spatialCoordinationFolderName);
-            if (spatialCoordinationFolder != null)
+            InwOpFolderView viewPointSaveFolder = GetViewpointDestinationFolderCom(result.Status, result.DisplayName, myState);
+            if (viewPointSaveFolder != null)
             {
-                FolderItem viewPointSaveFolder = GetViewPointDestinationFolderNet(spatialCoordinationFolder, result);
-                if (viewPointSaveFolder != null)
+                try
                 {
-                    try
-                    {
-                        oDoc.CurrentSelection.Clear();
-                        oDoc.CurrentSelection.AddRange(result.Selection1);
-                        oDoc.CurrentSelection.AddRange(result.Selection2);
-                        ZoomCurrentSelection();
+                    oDoc.CurrentSelection.Clear();
+                    oDoc.CurrentSelection.AddRange(result.Selection1);
+                    oDoc.CurrentSelection.AddRange(result.Selection2);
+                    ZoomCurrentSelection();
 
-                        Viewpoint allViewPoint = oDoc.CurrentViewpoint.CreateCopy();
+                    CreateViewPointFromCurrentView(myState, "All", viewPointSaveFolder);
 
-                        SavedViewpoint savedAllViewPoint = new SavedViewpoint(allViewPoint);
-                        savedAllViewPoint.DisplayName = "All";
-                        oDoc.SavedViewpoints.AddCopy(viewPointSaveFolder, savedAllViewPoint);
-
-                        Viewpoint isolatedViewPoint = allViewPoint.CreateCopy();
-
-                        SavedViewpoint savedIsolatedViewPoint = new SavedViewpoint(isolatedViewPoint);
-                        savedIsolatedViewPoint.DisplayName = "Isolated";
-                        oDoc.SavedViewpoints.AddCopy(viewPointSaveFolder, savedIsolatedViewPoint);
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show(ex.Message);
-                    }
+                    CreateViewPointFromCurrentView(myState, "Isolated", viewPointSaveFolder);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.Message);
                 }
             }
             else
             {
                 MessageBox.Show("Missing folder: " + spatialCoordinationFolderName);
             }
+        }
+
+        private static void CreateViewPointFromCurrentView(InwOpState10 myState, string name, InwOpFolderView viewPointSaveFolder)
+        {
+            InwOpView allViewPoint = myState.ObjectFactory(nwEObjectType.eObjectType_nwOpView);
+
+            // Set viewpoint camera and apply it
+            allViewPoint.anonview = myState.CurrentView;
+            // Name the viewpoint
+            allViewPoint.name = name;
+            // Set Hide/Required of viewpoint
+            allViewPoint.ApplyHideAttribs = true;
+            allViewPoint.ApplyMaterialAttribs = false;
+
+            viewPointSaveFolder.SavedViews().Add(allViewPoint);
         }
 
         private void CreateViewpointSet(InwOpState10 myState, InwOclTestResult oClash)
@@ -159,7 +162,7 @@ namespace PairClashViewpoints
             Autodesk.Navisworks.Api.DocumentParts.DocumentSavedViewpoints oSavePts = oDoc.SavedViewpoints;
 
             // Find the folder it belongs to
-            InwOpFolderView oFolder = GetViewpointDestinationFolderCom(oClash, myState);
+            InwOpFolderView oFolder = null;// GetViewpointDestinationFolderCom(oClash, myState);
             if (oFolder != null)
             {
                 try
@@ -221,32 +224,34 @@ namespace PairClashViewpoints
 
 
         #region GetFolderCom
-        private static InwOpFolderView GetViewpointDestinationFolderCom(InwOclTestResult oClash, InwOpState10 myState)
+        private static InwOpFolderView GetViewpointDestinationFolderCom(ClashResultStatus clashResult, string clashName, InwOpState10 myState)
         {
 
             var spatialCoordinationFolder = GetFolderCom(myState.SavedViews(), spatialCoordinationFolderName);
-            InwOpGroupView foundFolder = null;
-            switch (oClash.status)
+            
+            string folderName = null;
+            switch (clashResult)
             {
-                case nwETestResultStatus.eTestResultStatus_ACTIVE:
-                case nwETestResultStatus.eTestResultStatus_NEW:
-                    foundFolder = GetFolderCom(spatialCoordinationFolder, openIssuesFolderName);
+                case ClashResultStatus.Active:
+                case ClashResultStatus.New:
+                    folderName = openIssuesFolderName;
                     break;
 
-                case nwETestResultStatus.eTestResultStatus_APPROVED:
-                case nwETestResultStatus.eTestResultStatus_RESOLVED:
-                    foundFolder = GetFolderCom(spatialCoordinationFolder, closedIssuesFolderName);
+                case ClashResultStatus.Approved:
+                case ClashResultStatus.Resolved:
+                    folderName = closedIssuesFolderName;
                     break;
 
-                case nwETestResultStatus.eTestResultStatus_REVIEWED:
-                    foundFolder = GetFolderCom(spatialCoordinationFolder, reviewedIssuesFolderName);
+                case ClashResultStatus.Reviewed:
+                    folderName = reviewedIssuesFolderName;
                     break;
             }
 
+            InwOpGroupView foundFolder = GetFolderCom(spatialCoordinationFolder, folderName);
             if (foundFolder != null)
             {
                 InwOpFolderView newFolder = myState.ObjectFactory(nwEObjectType.eObjectType_nwOpFolderView) as InwOpFolderView;
-                newFolder.name = oClash.name;
+                newFolder.name = clashName;
                 foundFolder.SavedViews().Add(newFolder);
                 return newFolder;
             }
