@@ -64,22 +64,38 @@ namespace PairClashViewpoints
         {
             try
             {
+                bool cancel = false;
                 Document oDoc = Autodesk.Navisworks.Api.Application.ActiveDocument;
                 createViewCount = 0;
-                foreach (ClashTest test in oDoc.GetClash().TestsData.Tests)
+                var tests = oDoc.GetClash().TestsData.Tests;
+                double totalTests = tests.Count;
+                double currentTest = 0;
+                Progress progress = Autodesk.Navisworks.Api.Application.BeginProgress("Creating ViewPoints");
+                foreach (ClashTest test in tests)
                 {
+                    cancel = !progress.Update(++currentTest / totalTests);
+                    if (cancel)
+                        break;
+
+                    progress.BeginSubOperation(1 / totalTests, "Clash Batch: " + test.DisplayName);
+                    double totalClashes = test.Children.Count;
+                    double currentClash = 0;
                     foreach (IClashResult result in test.Children)
                     {
+                        cancel = !progress.Update(++currentClash / totalClashes);
+                        if (cancel)
+                            break;
+
                         if (result is ClashResultGroup)
                         {
                             CreateViewPointSet(myState, result);
-                        }
-                        ((NativeHandle)result).Dispose();                            
+                        }                        
+                        ((NativeHandle)result).Dispose();
                     }
-
+                    progress.EndSubOperation();
                     test.Dispose();
                 }
-
+                Autodesk.Navisworks.Api.Application.EndProgress();
             }
             catch (Exception ex)
             {
@@ -93,12 +109,14 @@ namespace PairClashViewpoints
             InwOpFolderView viewPointSaveFolder = GetViewpointDestinationFolder(result.Status, result.DisplayName, myState);
             if (viewPointSaveFolder != null)
             {
+                Transaction tran = oDoc.BeginTransaction(result.DisplayName);
                 try
                 {
                     Stopwatch stopWatch = new Stopwatch();
                     stopWatch.Start();
                     Debug.Write(string.Format("Starting #{0} - {1}", ++createViewCount, result.DisplayName));
-                    oDoc.BeginTransaction 
+                    myState.BeginEdit(result.DisplayName);
+
                     ShowDefaultViewpoint(myState);
                     oDoc.CurrentSelection.Clear();
                     oDoc.CurrentSelection.AddRange(result.Selection1);
@@ -113,12 +131,18 @@ namespace PairClashViewpoints
                     HideUnselected(myState);
 
                     CreateViewPointFromCurrentView(myState, "Isolated", viewPointSaveFolder);
+                    myState.EndEdit();
                     stopWatch.Stop();
                     Debug.WriteLine(" Elapsed: {0}s", stopWatch.Elapsed.TotalSeconds);
                 }
                 catch (Exception ex)
                 {
                     MessageBox.Show(ex.Message);
+                    tran.Dispose();
+                }
+                finally
+                {
+                    tran = null;
                 }
             }
             else
