@@ -17,20 +17,21 @@ namespace NumberClashes
 {
     [PluginAttribute("NumberClashes.NumberClashes",
          "MORT",
-         ToolTip = "Number the new clashes",
+         ToolTip = "Number clash groups. Clashes must not contain a '~' in the name",
          DisplayName = "Number Clashes")]
 
     public class NumberClashes : AddInPlugin
     {
         int clashNumber = 0;
-        
+        int newClashNumber = 0;
+
         public override int Execute(params string[] parameters)
         {
             Stopwatch totalTime = new Stopwatch();
             totalTime.Start();
             ParseClash();
             totalTime.Stop();
-            MessageBox.Show(Autodesk.Navisworks.Api.Application.Gui.MainWindow, "Done.  Clashes:" + clashNumber +  "    Elapsed: " + totalTime.Elapsed.TotalSeconds + "s");
+            MessageBox.Show(Autodesk.Navisworks.Api.Application.Gui.MainWindow, "Clashes Renamed: " + clashNumber + Environment.NewLine + "Clashes Skipped: " + (newClashNumber-clashNumber) + Environment.NewLine + "Elapsed: " + totalTime.Elapsed.TotalSeconds + "s");
             return 0;
         }
 
@@ -42,11 +43,13 @@ namespace NumberClashes
                 string clashPrefix = Interaction.InputBox("Clash Interation Prefix", "Number Clashes");
 
                 Document oDoc = Autodesk.Navisworks.Api.Application.ActiveDocument;
-                var tests = oDoc.GetClash().TestsData.Tests;
+                DocumentClashTests oDCT = oDoc.GetClash().TestsData;
+                var tests = oDCT.Tests;
+                tests.Sort();
                 double totalTests = tests.Count;
                 double currentTest = 0;
                 Progress progress = Autodesk.Navisworks.Api.Application.BeginProgress("Numbering Clashes");
-                
+
                 foreach (ClashTest test in tests)
                 {
                     cancel = !progress.Update(++currentTest / totalTests);
@@ -64,9 +67,10 @@ namespace NumberClashes
 
                         if (result is ClashResultGroup)
                         {
-                            if (result.Status == ClashResultStatus.New)
+                            if (!result.DisplayName.Contains("~"))
                             {
-                                result.DisplayName = clashPrefix + clashNumber + " - " + result.DisplayName;
+                                oDCT.TestsEditDisplayName((ClashResultGroup)result, clashPrefix + "-" + clashNumber.ToString("000") + " ~ " + result.DisplayName);
+
                                 clashNumber++;
                             }
                         }
