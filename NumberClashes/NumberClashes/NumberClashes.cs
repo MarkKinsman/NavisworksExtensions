@@ -23,7 +23,6 @@ namespace NumberClashes
     public class NumberClashes : AddInPlugin
     {
         int clashNumber = 0;
-        int newClashNumber = 0;
 
         public override int Execute(params string[] parameters)
         {
@@ -31,7 +30,7 @@ namespace NumberClashes
             totalTime.Start();
             ParseClash();
             totalTime.Stop();
-            MessageBox.Show(Autodesk.Navisworks.Api.Application.Gui.MainWindow, "Clashes Renamed: " + clashNumber + Environment.NewLine + "Clashes Skipped: " + (newClashNumber-clashNumber) + Environment.NewLine + "Elapsed: " + totalTime.Elapsed.TotalSeconds + "s");
+            MessageBox.Show(Autodesk.Navisworks.Api.Application.Gui.MainWindow, "Clashes Renamed: " + clashNumber + Environment.NewLine + "Elapsed: " + totalTime.Elapsed.TotalSeconds + "s");
             return 0;
         }
 
