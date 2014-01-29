@@ -1,4 +1,28 @@
-﻿using System;
+﻿//------------------------------------------------------------------
+// NumberClashes
+//------------------------------------------------------------------
+
+// (C) Copyright 2009 by Autodesk Inc.
+
+// Permission to use, copy, modify, and distribute this software in
+// object code form for any purpose and without fee is hereby granted,
+// provided that the above copyright notice appears in all copies and
+// that both that copyright notice and the limited warranty and
+// restricted rights notice below appear in all supporting
+// documentation.
+
+// AUTODESK PROVIDES THIS PROGRAM "AS IS" AND WITH ALL FAULTS.
+// AUTODESK SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTY OF
+// MERCHANTABILITY OR FITNESS FOR A PARTICULAR USE.  AUTODESK
+// DOES NOT WARRANT THAT THE OPERATION OF THE PROGRAM WILL BE
+// UNINTERRUPTED OR ERROR FREE.
+//------------------------------------------------------------------
+//
+// Number new clash groups that have not been named
+//
+//------------------------------------------------------------------
+
+using System;
 using System.Collections.Generic;
 using System.Windows.Forms;
 using System.Text;
@@ -22,7 +46,7 @@ namespace NumberClashes
 
     public class NumberClashes : AddInPlugin
     {
-        int clashNumber = 0;
+        int clashNumber = 1;
 
         public override int Execute(params string[] parameters)
         {
@@ -43,8 +67,8 @@ namespace NumberClashes
 
                 Document oDoc = Autodesk.Navisworks.Api.Application.ActiveDocument;
                 DocumentClashTests oDCT = oDoc.GetClash().TestsData;
+                oDCT.TestsSortTests(ClashTestSortMode.DisplayNameSort, ClashSortDirection.SortAscending);
                 var tests = oDCT.Tests;
-                tests.Sort();
                 double totalTests = tests.Count;
                 double currentTest = 0;
                 Progress progress = Autodesk.Navisworks.Api.Application.BeginProgress("Numbering Clashes");

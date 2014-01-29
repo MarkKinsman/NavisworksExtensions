@@ -7,6 +7,8 @@ Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Debug|x64 = Debug|x64
+		Deploy|Any CPU = Deploy|Any CPU
+		Deploy|x64 = Deploy|x64
 		Release|Any CPU = Release|Any CPU
 		Release|x64 = Release|x64
 	EndGlobalSection
@@ -15,10 +17,15 @@ Global
 		{13A01D69-F888-4E67-9A4F-42589F0B09CA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{13A01D69-F888-4E67-9A4F-42589F0B09CA}.Debug|x64.ActiveCfg = Debug|x64
 		{13A01D69-F888-4E67-9A4F-42589F0B09CA}.Debug|x64.Build.0 = Debug|x64
+		{13A01D69-F888-4E67-9A4F-42589F0B09CA}.Deploy|Any CPU.ActiveCfg = Deploy|Any CPU
+		{13A01D69-F888-4E67-9A4F-42589F0B09CA}.Deploy|Any CPU.Build.0 = Deploy|Any CPU
+		{13A01D69-F888-4E67-9A4F-42589F0B09CA}.Deploy|x64.ActiveCfg = Deploy|Any CPU
+		{13A01D69-F888-4E67-9A4F-42589F0B09CA}.Deploy|x64.Build.0 = Deploy|Any CPU
 		{13A01D69-F888-4E67-9A4F-42589F0B09CA}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{13A01D69-F888-4E67-9A4F-42589F0B09CA}.Release|Any CPU.Build.0 = Release|Any CPU
-		{13A01D69-F888-4E67-9A4F-42589F0B09CA}.Release|x64.ActiveCfg = Release|x64
-		{13A01D69-F888-4E67-9A4F-42589F0B09CA}.Release|x64.Build.0 = Release|x64
+		{13A01D69-F888-4E67-9A4F-42589F0B09CA}.Release|x64.ActiveCfg = Debug|x64
+		{13A01D69-F888-4E67-9A4F-42589F0B09CA}.Release|x64.Build.0 = Debug|x64
+		{13A01D69-F888-4E67-9A4F-42589F0B09CA}.Release|x64.Deploy.0 = Debug|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
