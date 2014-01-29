@@ -1,4 +1,28 @@
-﻿using System;
+﻿//------------------------------------------------------------------
+// Create Viewpoint from Clash Detective
+//------------------------------------------------------------------
+
+// (C) Copyright 2009 by Autodesk Inc.
+
+// Permission to use, copy, modify, and distribute this software in
+// object code form for any purpose and without fee is hereby granted,
+// provided that the above copyright notice appears in all copies and
+// that both that copyright notice and the limited warranty and
+// restricted rights notice below appear in all supporting
+// documentation.
+
+// AUTODESK PROVIDES THIS PROGRAM "AS IS" AND WITH ALL FAULTS.
+// AUTODESK SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTY OF
+// MERCHANTABILITY OR FITNESS FOR A PARTICULAR USE.  AUTODESK
+// DOES NOT WARRANT THAT THE OPERATION OF THE PROGRAM WILL BE
+// UNINTERRUPTED OR ERROR FREE.
+//------------------------------------------------------------------
+//
+// 
+//
+//------------------------------------------------------------------
+
+using System;
 using System.Collections.Generic;
 using System.Windows.Forms;
 using System.Text;
@@ -23,6 +47,7 @@ namespace PairClashViewpoints
 
     public class CreateViewpoint : AddInPlugin
     {
+        #region Global Variables
         const string defaulViewpointName = "00. Default";
         const string spatialCoordinationFolderName = "02. Spatial Coordination";
         const string openIssuesFolderName = "01. Open Issues";
@@ -32,34 +57,145 @@ namespace PairClashViewpoints
         InwOpFolderView openIssuesFolder = null;
         InwOpFolderView closedIssuesFolder = null;
         InwOpFolderView reviewedIssuesFolder = null;
+        Dictionary<String, InwOpFolderView> oldViewpoints = new Dictionary<string,InwOpFolderView>();
 
         InwOpView defaultView = null;
         int createViewCount = 0;
+        #endregion
 
         public override int Execute(params string[] parameters)
         {
-            InwOpState10 myState = ComApiBridge.State;
+            try
+            {
+                InwOpState10 myState = ComApiBridge.State;
 
-            GetAndClearClashFolders(myState);
-            Stopwatch totalTime = new Stopwatch();
-            totalTime.Start();
-            ParseClash(myState);
-            totalTime.Stop();
-            MessageBox.Show(Autodesk.Navisworks.Api.Application.Gui.MainWindow, "Done.  Elapsed: " + totalTime.Elapsed.TotalSeconds + "s");
+                GetClashFolders(myState);
+                ClearClashFolders(myState);
+                Stopwatch totalTime = new Stopwatch();
+                totalTime.Start();
+                ParseClash(myState);
+                ShowDefaultViewpoint(myState);
+                oldViewpoints.Clear();
+                totalTime.Stop();
+                MessageBox.Show(Autodesk.Navisworks.Api.Application.Gui.MainWindow, "Done.  Elapsed: " + totalTime.Elapsed.TotalSeconds + "s");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
             return 0;
         }
 
-        private void GetAndClearClashFolders(InwOpState10 myState)
+        #region Viewpont Folder Management
+        private void GetClashFolders(InwOpState10 myState)
         {
-            var spatialCoordinationFolder = GetFolder(myState.SavedViews(), spatialCoordinationFolderName);
-            openIssuesFolder = GetFolder(spatialCoordinationFolder, openIssuesFolderName);
-            openIssuesFolder.SavedViews().Clear();
-            closedIssuesFolder = GetFolder(spatialCoordinationFolder, closedIssuesFolderName);
-            closedIssuesFolder.SavedViews().Clear();
-            reviewedIssuesFolder = GetFolder(spatialCoordinationFolder, reviewedIssuesFolderName);
-            reviewedIssuesFolder.SavedViews().Clear();
+            try
+            {
+                var spatialCoordinationFolder = GetFolder(myState.SavedViews(), spatialCoordinationFolderName);
+                openIssuesFolder = GetFolder(spatialCoordinationFolder, openIssuesFolderName);
+                closedIssuesFolder = GetFolder(spatialCoordinationFolder, closedIssuesFolderName);
+                reviewedIssuesFolder = GetFolder(spatialCoordinationFolder, reviewedIssuesFolderName);
+                oldViewpoints = GetOldViewpoints();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
         }
 
+        private Dictionary<string, InwOpFolderView> GetOldViewpoints()
+        {
+            Dictionary<string, InwOpFolderView> viewpointsDictionary = new Dictionary<string, InwOpFolderView>();
+
+            foreach (InwOpSavedView viewpoint in openIssuesFolder.SavedViews())
+            {
+                if (viewpoint.Type == nwESavedViewType.eSavedViewType_Folder)
+                {
+                    if (viewpointsDictionary.ContainsKey(viewpoint.name))
+                    {
+                        MessageBox.Show(viewpoint.name + " is not a unique clash name. This may cause errors in the exported viewpoints.");
+                    }
+                    else
+                    {
+                        viewpointsDictionary.Add(viewpoint.name, (InwOpFolderView)viewpoint.Copy());
+                    }
+                }
+            }
+            foreach (InwOpSavedView viewpoint in closedIssuesFolder.SavedViews())
+            {
+                if (viewpoint.Type == nwESavedViewType.eSavedViewType_Folder)
+                {
+                    if (viewpointsDictionary.ContainsKey(viewpoint.name))
+                    {
+                        MessageBox.Show(viewpoint.name + " is not a unique clash name. This may cause errors in the exported viewpoints.");
+                    }
+                    else
+                    {
+                        viewpointsDictionary.Add(viewpoint.name, (InwOpFolderView)viewpoint.Copy());
+                    }
+                }
+            }
+            foreach (InwOpSavedView viewpoint in reviewedIssuesFolder.SavedViews())
+            {
+                if (viewpoint.Type == nwESavedViewType.eSavedViewType_Folder)
+                {
+                    if (viewpointsDictionary.ContainsKey(viewpoint.name))
+                    {
+                        MessageBox.Show(viewpoint.name + " is not a unique clash name. This may cause errors in the exported viewpoints.");
+                    }
+                    else
+                    {
+                        viewpointsDictionary.Add(viewpoint.name, (InwOpFolderView)viewpoint.Copy());
+                    }
+                }
+            }
+
+            return viewpointsDictionary;
+        }
+
+        private void ClearClashFolders(InwOpState10 myState)
+        {
+            try
+            {
+                openIssuesFolder.SavedViews().Clear();
+                closedIssuesFolder.SavedViews().Clear();
+                reviewedIssuesFolder.SavedViews().Clear();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
+        }
+
+        private void ShowViewpointSelector()
+        {
+            if (Autodesk.Navisworks.Api.Application.IsAutomated)
+            {
+                throw new InvalidOperationException("Invalid when running using Automation");
+            }
+
+            //Find the plugin
+            PluginRecord pr =
+               Autodesk.Navisworks.Api.Application.Plugins.FindPlugin("AppInfo.AppInfoDockPane.ADSK");
+
+            if (pr != null && pr is DockPanePluginRecord && pr.IsEnabled)
+            {
+                //check if it needs loading
+                if (pr.LoadedPlugin == null)
+                {
+                    pr.LoadPlugin();
+                }
+
+                DockPanePlugin dpp = pr.LoadedPlugin as DockPanePlugin;
+                if (dpp != null)
+                {
+                    //switch the Visible flag
+                    dpp.Visible = !dpp.Visible;
+                }
+            }
+        }
+        #endregion
+        
         private void ParseClash(InwOpState10 myState)
         {
             try
@@ -102,7 +238,8 @@ namespace PairClashViewpoints
                 MessageBox.Show(ex.Message);
             }
         }
-
+        
+        #region Viewpoint Creation
         private void CreateViewPointSet(InwOpState10 myState, IClashResult result)
         {
             Document oDoc = Autodesk.Navisworks.Api.Application.ActiveDocument;
@@ -117,7 +254,14 @@ namespace PairClashViewpoints
                     Debug.Write(string.Format("Starting #{0} - {1}", ++createViewCount, result.DisplayName));
                     myState.BeginEdit(result.DisplayName);
 
-                    ShowDefaultViewpoint(myState);
+                    if (oldViewpoints.ContainsKey(result.DisplayName))
+                    {
+                        myState.ApplyView(oldViewpoints[result.DisplayName].SavedViews()[1]);
+                    }
+                    else
+                    {
+                        ShowDefaultViewpoint(myState);
+                    }
                     oDoc.CurrentSelection.Clear();
                     oDoc.CurrentSelection.AddRange(result.Selection1);
                     oDoc.CurrentSelection.AddRange(result.Selection2);
@@ -213,6 +357,7 @@ namespace PairClashViewpoints
                 return null;
             }
         }
+        #endregion
 
         private static InwOpFolderView GetFolder(InwSavedViewsColl rootSavedViews, string folderName)
         {

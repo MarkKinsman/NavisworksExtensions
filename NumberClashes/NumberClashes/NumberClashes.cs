@@ -46,7 +46,7 @@ namespace NumberClashes
 
     public class NumberClashes : AddInPlugin
     {
-        int clashNumber = 1;
+        int clashNumber = 0;
 
         public override int Execute(params string[] parameters)
         {
@@ -64,7 +64,11 @@ namespace NumberClashes
             {
                 bool cancel = false;
                 string clashPrefix = Interaction.InputBox("Clash Interation Prefix", "Number Clashes");
-
+                if (clashPrefix == "")
+                {
+                    MessageBox.Show("Plugin Canceled");
+                    return;
+                }
                 Document oDoc = Autodesk.Navisworks.Api.Application.ActiveDocument;
                 DocumentClashTests oDCT = oDoc.GetClash().TestsData;
                 oDCT.TestsSortTests(ClashTestSortMode.DisplayNameSort, ClashSortDirection.SortAscending);
@@ -92,7 +96,7 @@ namespace NumberClashes
                         {
                             if (!result.DisplayName.Contains("~"))
                             {
-                                oDCT.TestsEditDisplayName((ClashResultGroup)result, clashPrefix + "-" + clashNumber.ToString("000") + " ~ " + result.DisplayName);
+                                oDCT.TestsEditDisplayName((ClashResultGroup)result, clashPrefix + "-" + (clashNumber+1).ToString("000") + " ~ " + result.DisplayName);
 
                                 clashNumber++;
                             }
