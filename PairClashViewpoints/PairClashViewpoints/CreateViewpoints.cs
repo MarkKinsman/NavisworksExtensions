@@ -254,18 +254,19 @@ namespace PairClashViewpoints
                     Debug.Write(string.Format("Starting #{0} - {1}", ++createViewCount, result.DisplayName));
                     myState.BeginEdit(result.DisplayName);
 
-                    if (oldViewpoints.ContainsKey(result.DisplayName))
+                    if (oldViewpoints.ContainsKey(result.DisplayName) & result.DisplayName.Contains("~"))
                     {
                         myState.ApplyView(oldViewpoints[result.DisplayName].SavedViews()[1]);
                     }
                     else
                     {
                         ShowDefaultViewpoint(myState);
+                        oDoc.CurrentSelection.Clear();
+                        oDoc.CurrentSelection.AddRange(result.Selection1);
+                        oDoc.CurrentSelection.AddRange(result.Selection2);
+                        ZoomCurrentSelection();
                     }
-                    oDoc.CurrentSelection.Clear();
-                    oDoc.CurrentSelection.AddRange(result.Selection1);
-                    oDoc.CurrentSelection.AddRange(result.Selection2);
-                    ZoomCurrentSelection();
+                    
 
                     CreateViewPointFromCurrentView(myState, "All", viewPointSaveFolder);
 
@@ -402,7 +403,7 @@ namespace PairClashViewpoints
                 // Make the unselected part of model invisible
                 myState.set_SelectionHidden(myRestOfModel, true);
                 // Zoom on the currently selected part of model
-                myState.ZoomInCurViewOnCurSel();
+                // myState.ZoomInCurViewOnCurSel();
             }
             catch (Exception loEx1)
             {
