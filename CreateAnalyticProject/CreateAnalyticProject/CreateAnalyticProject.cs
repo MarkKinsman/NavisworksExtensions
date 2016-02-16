@@ -16,7 +16,7 @@ namespace CreateAnalyticProject
              ToolTip = "Create a new project to send analytics to by creating a config file",       //The tooltip for the item in the ribbon
              DisplayName = "Create Analytics Project")]                                             //Display name for the Plugin in the Ribbon
 
-    public class CreateAnalyticProject
+    public class CreateAnalyticProject : AddInPlugin
     {
         public override int Execute(params string[] parameters)
         {

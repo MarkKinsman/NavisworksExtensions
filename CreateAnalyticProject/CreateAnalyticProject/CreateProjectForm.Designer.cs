@@ -29,9 +29,7 @@
         private void InitializeComponent()
         {
             this.label1 = new System.Windows.Forms.Label();
-            this.textBox1 = new System.Windows.Forms.TextBox();
-            this.listBox1 = new System.Windows.Forms.ListBox();
-            this.listBox2 = new System.Windows.Forms.ListBox();
+            this.txt_project = new System.Windows.Forms.TextBox();
             this.bttn_levelsUp = new System.Windows.Forms.Button();
             this.bttn_levelsDown = new System.Windows.Forms.Button();
             this.bttn_levelsDelete = new System.Windows.Forms.Button();
@@ -56,6 +54,13 @@
             this.button4 = new System.Windows.Forms.Button();
             this.txt_fileName = new System.Windows.Forms.TextBox();
             this.bttn_create = new System.Windows.Forms.Button();
+            this.lst_files = new System.Windows.Forms.ListView();
+            this.fileName = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
+            this.fileResp = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
+            this.lst_levels = new System.Windows.Forms.ListView();
+            this.columnHeader1 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
+            this.columnHeader2 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
+            this.fileOwner = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.SuspendLayout();
             // 
             // label1
@@ -67,30 +72,12 @@
             this.label1.TabIndex = 0;
             this.label1.Text = "Project Name:";
             // 
-            // textBox1
+            // txt_project
             // 
-            this.textBox1.Location = new System.Drawing.Point(90, 17);
-            this.textBox1.Name = "textBox1";
-            this.textBox1.Size = new System.Drawing.Size(341, 20);
-            this.textBox1.TabIndex = 1;
-            // 
-            // listBox1
-            // 
-            this.listBox1.FormattingEnabled = true;
-            this.listBox1.Location = new System.Drawing.Point(13, 66);
-            this.listBox1.MultiColumn = true;
-            this.listBox1.Name = "listBox1";
-            this.listBox1.Size = new System.Drawing.Size(197, 290);
-            this.listBox1.TabIndex = 3;
-            // 
-            // listBox2
-            // 
-            this.listBox2.FormattingEnabled = true;
-            this.listBox2.Location = new System.Drawing.Point(265, 66);
-            this.listBox2.MultiColumn = true;
-            this.listBox2.Name = "listBox2";
-            this.listBox2.Size = new System.Drawing.Size(316, 290);
-            this.listBox2.TabIndex = 4;
+            this.txt_project.Location = new System.Drawing.Point(90, 17);
+            this.txt_project.Name = "txt_project";
+            this.txt_project.Size = new System.Drawing.Size(341, 20);
+            this.txt_project.TabIndex = 1;
             // 
             // bttn_levelsUp
             // 
@@ -284,6 +271,7 @@
             this.button4.TabIndex = 26;
             this.button4.Text = "Add File";
             this.button4.UseVisualStyleBackColor = true;
+            this.button4.Click += new System.EventHandler(this.button4_Click);
             // 
             // txt_fileName
             // 
@@ -301,12 +289,69 @@
             this.bttn_create.TabIndex = 28;
             this.bttn_create.Text = "Create Project";
             this.bttn_create.UseVisualStyleBackColor = true;
+            this.bttn_create.Click += new System.EventHandler(this.bttn_create_Click);
+            // 
+            // lst_files
+            // 
+            this.lst_files.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
+            this.fileName,
+            this.fileResp,
+            this.fileOwner});
+            this.lst_files.FullRowSelect = true;
+            this.lst_files.HeaderStyle = System.Windows.Forms.ColumnHeaderStyle.Nonclickable;
+            this.lst_files.Location = new System.Drawing.Point(265, 66);
+            this.lst_files.Name = "lst_files";
+            this.lst_files.Size = new System.Drawing.Size(316, 290);
+            this.lst_files.TabIndex = 29;
+            this.lst_files.UseCompatibleStateImageBehavior = false;
+            this.lst_files.View = System.Windows.Forms.View.Details;
+            // 
+            // fileName
+            // 
+            this.fileName.Text = "File Name";
+            this.fileName.Width = 135;
+            // 
+            // fileResp
+            // 
+            this.fileResp.Text = "Responsibilty Code";
+            this.fileResp.Width = 103;
+            // 
+            // lst_levels
+            // 
+            this.lst_levels.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
+            this.columnHeader1,
+            this.columnHeader2});
+            this.lst_levels.FullRowSelect = true;
+            this.lst_levels.HeaderStyle = System.Windows.Forms.ColumnHeaderStyle.Nonclickable;
+            this.lst_levels.Location = new System.Drawing.Point(7, 66);
+            this.lst_levels.Name = "lst_levels";
+            this.lst_levels.Size = new System.Drawing.Size(197, 290);
+            this.lst_levels.TabIndex = 30;
+            this.lst_levels.UseCompatibleStateImageBehavior = false;
+            this.lst_levels.View = System.Windows.Forms.View.Details;
+            // 
+            // columnHeader1
+            // 
+            this.columnHeader1.Text = "Level Name";
+            this.columnHeader1.Width = 116;
+            // 
+            // columnHeader2
+            // 
+            this.columnHeader2.Text = "Level Height";
+            this.columnHeader2.Width = 77;
+            // 
+            // fileOwner
+            // 
+            this.fileOwner.Text = "Owner Code";
+            this.fileOwner.Width = 74;
             // 
             // CreateProjectForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(625, 499);
+            this.Controls.Add(this.lst_levels);
+            this.Controls.Add(this.lst_files);
             this.Controls.Add(this.bttn_create);
             this.Controls.Add(this.txt_fileName);
             this.Controls.Add(this.button4);
@@ -330,10 +375,8 @@
             this.Controls.Add(this.bttn_levelsDelete);
             this.Controls.Add(this.bttn_levelsDown);
             this.Controls.Add(this.bttn_levelsUp);
-            this.Controls.Add(this.listBox2);
-            this.Controls.Add(this.listBox1);
             this.Controls.Add(this.label2);
-            this.Controls.Add(this.textBox1);
+            this.Controls.Add(this.txt_project);
             this.Controls.Add(this.label1);
             this.Name = "CreateProjectForm";
             this.Text = "CreateProjectForm";
@@ -345,9 +388,7 @@
         #endregion
 
         private System.Windows.Forms.Label label1;
-        private System.Windows.Forms.TextBox textBox1;
-        private System.Windows.Forms.ListBox listBox1;
-        private System.Windows.Forms.ListBox listBox2;
+        private System.Windows.Forms.TextBox txt_project;
         private System.Windows.Forms.Button bttn_levelsUp;
         private System.Windows.Forms.Button bttn_levelsDown;
         private System.Windows.Forms.Button bttn_levelsDelete;
@@ -372,5 +413,12 @@
         private System.Windows.Forms.Button button4;
         private System.Windows.Forms.TextBox txt_fileName;
         private System.Windows.Forms.Button bttn_create;
+        private System.Windows.Forms.ListView lst_files;
+        private System.Windows.Forms.ColumnHeader fileName;
+        private System.Windows.Forms.ColumnHeader fileResp;
+        private System.Windows.Forms.ListView lst_levels;
+        private System.Windows.Forms.ColumnHeader columnHeader1;
+        private System.Windows.Forms.ColumnHeader columnHeader2;
+        private System.Windows.Forms.ColumnHeader fileOwner;
     }
 }

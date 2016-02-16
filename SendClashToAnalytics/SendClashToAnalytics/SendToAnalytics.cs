@@ -23,7 +23,10 @@ namespace SendClashToAnalytics
         {
             SendForm sendForm = new SendForm();
             if (sendForm.ShowDialog() != DialogResult.OK)
+            {
+                MessageBox.Show("Plugin Canceled");
                 return 0;
+            }
 
             return 0;
         }
